@@ -14,19 +14,30 @@ type badGuy struct {
 	pos		position
 }
 
-func whereIsBadGuy(b badGuy) {
+func whereIsBadGuy(b *badGuy) {
 	x := b.pos.x
 	y := b.pos.y
 	fmt.Printf("Bad Guy is at: ( %v , %v )", x, y)
 }
 
+func addOne(num *int) {
+	*num = *num + 1
+}
+
+
 func main() {
-	p := position{4, 2}
+	x := 5
+	fmt.Println(x)
 
-	fmt.Println(p.x)
-	fmt.Println(p.y)
+	xPtr := &x
+	fmt.Println(xPtr)
+	fmt.Println(*xPtr)
 
+	addOne(xPtr)
+	fmt.Println(x)
+
+	p := position{4 , 2}
 	b := badGuy{"Dr. Evil", 100, p}
 	fmt.Println(b)
-	whereIsBadGuy(b)
+	whereIsBadGuy(&b)
 }
