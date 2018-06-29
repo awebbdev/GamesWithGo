@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"time"
 	"fmt"
 
@@ -111,15 +112,17 @@ func (ball *ball) update(leftPaddle, rightPaddle *paddle, elapsedTime float32) {
 		ball.pos = getCenter()
 		state = start
 	}
-	if ball.x < leftPaddle.x+leftPaddle.w/2 {
+	if ball.x-ball.radius < leftPaddle.x+leftPaddle.w/2 {
 		if ball.y > leftPaddle.y-leftPaddle.h/2 && ball.y < leftPaddle.y+leftPaddle.h/2 {
 			ball.xv = -ball.xv
+			ball.x = leftPaddle.x + leftPaddle.w/2.0 + ball.radius
 		}
 
 	}
-	if ball.x > rightPaddle.x-rightPaddle.w/2 {
+	if ball.x+ball.radius > rightPaddle.x-rightPaddle.w/2 {
 		if ball.y > rightPaddle.y-rightPaddle.h/2 && ball.y < rightPaddle.y+rightPaddle.h/2 {
 			ball.xv = -ball.xv
+			ball.x = rightPaddle.x - rightPaddle.w/2.0 - ball.radius
 		}
 
 	}
@@ -152,12 +155,17 @@ func (paddle *paddle) draw(pixels []byte) {
 	drawNumber(pos{numX, 35}, paddle.color, 10, paddle.score, pixels)
 }
 
-func (paddle *paddle) update(keyState []uint8, elapsedTime float32) {
+func (paddle *paddle) update(keyState []uint8, controllerAxis int16, elapsedTime float32) {
 	if keyState[sdl.SCANCODE_UP] != 0 {
 		paddle.y -= paddle.speed * elapsedTime
 	}
 	if keyState[sdl.SCANCODE_DOWN] != 0 {
 		paddle.y += paddle.speed * elapsedTime
+	}
+
+	if math.Abs(float64(controllerAxis)) > 1500 {
+		pct := float32(controllerAxis) / 32767.0
+		paddle.y += paddle.speed * pct * elapsedTime
 	}
 }
 
@@ -204,6 +212,12 @@ func main() {
 	}
 	defer tex.Destroy()
 
+	var controllerHandlers []*sdl.GameController
+	for i := 0; i < sdl.NumJoysticks();i++{
+		controllerHandlers = append(controllerHandlers, sdl.GameControllerOpen(i))
+		defer controllerHandlers[i].Close()
+	}
+
 	pixels := make([]byte, int(winWidth*winHeight*4))
 
 	player1 := paddle{pos{50, 100}, 20, 100, 300, 0, color{255, 255, 255}}
@@ -214,7 +228,7 @@ func main() {
 
 	var frameStart time.Time
 	var elapsedTime float32
-
+	var controllerAxis int16
 	for {
 		frameStart = time.Now()
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
@@ -223,8 +237,14 @@ func main() {
 				return
 			}
 		}
+
+		for _, controller := range controllerHandlers {
+			if controller != nil {
+				controllerAxis = controller.Axis(sdl.CONTROLLER_AXIS_LEFTY)
+			}
+		}
 		if state == play {
-			player1.update(keyState, elapsedTime)
+			player1.update(keyState, controllerAxis, elapsedTime)
 			player2.aiUpdate(&ball)
 			ball.update(&player1, &player2, elapsedTime)
 		} else if state == start {
@@ -247,7 +267,7 @@ func main() {
 
 		elapsedTime = float32(time.Since(frameStart).Seconds())
 		if elapsedTime < 0.005 {
-			sdl.Delay(5 - uint32(elapsedTime/1000.00))
+			sdl.Delay(5 - uint32(elapsedTime*1000.00))
 			elapsedTime = float32(time.Since(frameStart).Seconds())
 		}
 	}
