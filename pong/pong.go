@@ -1,6 +1,7 @@
 package main
 
 import (
+	"time"
 	"fmt"
 
 	"github.com/veandco/go-sdl2/sdl"
@@ -18,7 +19,7 @@ type pos struct {
 
 type ball struct {
 	pos
-	radius int
+	radius float32
 	xv     float32
 	yv     float32
 	color  color
@@ -28,32 +29,35 @@ func (ball *ball) draw(pixels []byte) {
 	for y := -ball.radius; y < ball.radius; y++ {
 		for x := -ball.radius; x < ball.radius; x++ {
 			if x*x+y*y < ball.radius*ball.radius {
-				setPixel(int(ball.x)+x, int(ball.y)+y, color{255, 255, 255}, pixels)
+				setPixel(int(ball.x+x), int(ball.y+y), color{255, 255, 255}, pixels)
 			}
 		}
 	}
 }
 
-func (ball *ball) update(leftPaddle, rightPaddle *paddle) {
-	ball.x += ball.xv
-	ball.y += ball.yv
+func getCenter() pos {
+	return pos{float32(winWidth / 2), float32(winHeight / 2)}
+}
 
-	if int(ball.y) - ball.radius < 0 ||  int(ball.y) - ball.radius > winHeight {
+func (ball *ball) update(leftPaddle, rightPaddle *paddle, elapsedTime float32) {
+	ball.x += ball.xv * elapsedTime
+	ball.y += ball.yv * elapsedTime
+
+	if ball.y-ball.radius < 0 || ball.y-ball.radius > float32(winHeight) {
 		ball.yv = -ball.yv
 	}
-	if ball.x < 0 || int(ball.x) > winWidth {
-		ball.x = 300
-		ball.y = 300
+	if ball.x < 0 || ball.x > float32(winWidth) {
+		ball.pos = getCenter()
 	}
 
-	if int(ball.x) < int(leftPaddle.x) + leftPaddle.w / 2 {
-		if int(ball.y) > int(leftPaddle.y) - leftPaddle.h / 2 && int(ball.y) < int(leftPaddle.y) + leftPaddle.h / 2 {
+	if ball.x < leftPaddle.x+leftPaddle.w/2 {
+		if ball.y > leftPaddle.y-leftPaddle.h/2 && ball.y < leftPaddle.y+leftPaddle.h/2 {
 			ball.xv = -ball.xv
 		}
 
 	}
-	if int(ball.x) > int(rightPaddle.x) -rightPaddle.w / 2 {
-		if int(ball.y) > int(rightPaddle.y) - rightPaddle.h / 2 && int(ball.y) < int(rightPaddle.y) + rightPaddle.h / 2 {
+	if ball.x > rightPaddle.x-rightPaddle.w/2 {
+		if ball.y > rightPaddle.y-rightPaddle.h/2 && ball.y < rightPaddle.y+rightPaddle.h/2 {
 			ball.xv = -ball.xv
 		}
 
@@ -62,28 +66,29 @@ func (ball *ball) update(leftPaddle, rightPaddle *paddle) {
 
 type paddle struct {
 	pos
-	w     int
-	h     int
+	w     float32
+	h     float32
+	speed float32
 	color color
 }
 
 func (paddle *paddle) draw(pixels []byte) {
-	startX := int(paddle.x) - paddle.w/2
-	startY := int(paddle.y) - paddle.h/2
+	startX := paddle.x - paddle.w/2
+	startY := paddle.y - paddle.h/2
 
-	for y := 0; y < paddle.h; y++ {
-		for x := 0; x < paddle.w; x++ {
-			setPixel(startX+x, startY+y, color{255, 255, 255}, pixels)
+	for y := 0; y < int(paddle.h); y++ {
+		for x := 0; x < int(paddle.w); x++ {
+			setPixel(int(startX)+x, int(startY)+y, color{255, 255, 255}, pixels)
 		}
 	}
 }
 
-func (paddle *paddle) update(keyState []uint8) {
+func (paddle *paddle) update(keyState []uint8, elapsedTime float32) {
 	if keyState[sdl.SCANCODE_UP] != 0 {
-		paddle.y -= 5
+		paddle.y -= paddle.speed * elapsedTime
 	}
 	if keyState[sdl.SCANCODE_DOWN] != 0 {
-		paddle.y += 5
+		paddle.y += paddle.speed * elapsedTime
 	}
 }
 
@@ -91,15 +96,14 @@ func (paddle *paddle) aiUpdate(ball *ball) {
 	paddle.y = ball.y
 }
 
-func clear(pixels []byte){
-	for i:= range pixels {
+func clear(pixels []byte) {
+	for i := range pixels {
 		pixels[i] = 0
 	}
 }
 
-
 func setPixel(x, y int, c color, pixels []byte) {
-	index := (y*winWidth + x) * 4
+	index := (y*int(winWidth) + x) * 4
 
 	if index < len(pixels)-4 && index >= 0 {
 		pixels[index] = c.r
@@ -131,15 +135,19 @@ func main() {
 	}
 	defer tex.Destroy()
 
-	pixels := make([]byte, winWidth*winHeight*4)
+	pixels := make([]byte, int(winWidth*winHeight*4))
 
-	player1 := paddle{pos{50, 100}, 20, 100, color{255, 255, 255}}
-	player2 := paddle{pos{float32(winWidth) - 50, 100}, 20, 100, color{255, 255, 255}}
-	ball := ball{pos{300, 300}, 20, 2, 2, color{255, 255, 255}}
+	player1 := paddle{pos{50, 100}, 20, 100, 300, color{255, 255, 255}}
+	player2 := paddle{pos{float32(winWidth) - 50, 100}, 20, 100, 300, color{255, 255, 255}}
+	ball := ball{getCenter(), 20, 400, 400, color{255, 255, 255}}
 
 	keyState := sdl.GetKeyboardState()
 
+	var frameStart time.Time
+	var elapsedTime float32
+
 	for {
+		frameStart = time.Now()
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			switch event.(type) {
 			case *sdl.QuitEvent:
@@ -147,18 +155,21 @@ func main() {
 			}
 		}
 		clear(pixels)
-		player1.update(keyState)
+		player1.update(keyState, elapsedTime)
 		player2.aiUpdate(&ball)
-		ball.update(&player1, &player2)
-
+		ball.update(&player1, &player2, elapsedTime)
 
 		player1.draw(pixels)
 		player2.draw(pixels)
 		ball.draw(pixels)
-		tex.Update(nil, pixels, winWidth*4)
+		tex.Update(nil, pixels, int(winWidth*4))
 		renderer.Copy(tex, nil, nil)
 		renderer.Present()
 
-		sdl.Delay(16)
+		elapsedTime = float32(time.Since(frameStart).Seconds())
+		if elapsedTime < 0.005 {
+			sdl.Delay(5 - uint32(elapsedTime/1000.00))
+			elapsedTime = float32(time.Since(frameStart).Seconds())
+		}
 	}
 }
