@@ -9,12 +9,68 @@ import (
 
 const winWidth, winHeight int = 800, 600
 
+type gameState int
+const(
+	start gameState = iota
+	play
+)
+var state = start
+var nums = [][]byte {
+	{
+		1,1,1,
+		1,0,1,
+		1,0,1,
+		1,0,1,
+		1,1,1,
+	},
+		{
+		1,1,0,
+		0,1,0,
+		0,1,0,
+		0,1,0,
+		1,1,1,
+	},
+	{
+		1,1,1,
+		0,0,1,
+		1,1,1,
+		1,0,0,
+		1,1,1,
+	},
+	{
+		1,1,1,
+		0,0,1,
+		1,1,1,
+		0,0,1,
+		1,1,1,
+	},
+}
 type color struct {
 	r, g, b byte
 }
 
 type pos struct {
 	x, y float32
+}
+
+func drawNumber(pos pos, color color, size, num int, pixels[]byte){
+	startX := int(pos.x) - (size*3)/2
+	startY := int(pos.y) - (size*5)/2
+
+	for i,v := range nums[num] {
+		if v == 1 {
+			for y := startY; y < startY + size; y++ {
+				for x := startX; x < startX + size; x++{
+					setPixel(x,y,color,pixels)
+				}
+			}
+		}
+		startX += size
+		if (i+1)%3 == 0 {
+			startY += size
+			startX -= size * 3
+		}
+	}
 }
 
 type ball struct {
@@ -46,10 +102,15 @@ func (ball *ball) update(leftPaddle, rightPaddle *paddle, elapsedTime float32) {
 	if ball.y-ball.radius < 0 || ball.y-ball.radius > float32(winHeight) {
 		ball.yv = -ball.yv
 	}
-	if ball.x < 0 || ball.x > float32(winWidth) {
+	if ball.x < 0 {
+		rightPaddle.score++
 		ball.pos = getCenter()
+		state = start
+	}else if int(ball.x) > winWidth {
+		leftPaddle.score++
+		ball.pos = getCenter()
+		state = start
 	}
-
 	if ball.x < leftPaddle.x+leftPaddle.w/2 {
 		if ball.y > leftPaddle.y-leftPaddle.h/2 && ball.y < leftPaddle.y+leftPaddle.h/2 {
 			ball.xv = -ball.xv
@@ -69,7 +130,12 @@ type paddle struct {
 	w     float32
 	h     float32
 	speed float32
+	score int
 	color color
+}
+
+func lerp(a, b, pct float32) float32 {
+	return a + pct*(b-a)
 }
 
 func (paddle *paddle) draw(pixels []byte) {
@@ -81,6 +147,9 @@ func (paddle *paddle) draw(pixels []byte) {
 			setPixel(int(startX)+x, int(startY)+y, color{255, 255, 255}, pixels)
 		}
 	}
+
+	numX := lerp(paddle.x, getCenter().x, 0.2)
+	drawNumber(pos{numX, 35}, paddle.color, 10, paddle.score, pixels)
 }
 
 func (paddle *paddle) update(keyState []uint8, elapsedTime float32) {
@@ -137,8 +206,8 @@ func main() {
 
 	pixels := make([]byte, int(winWidth*winHeight*4))
 
-	player1 := paddle{pos{50, 100}, 20, 100, 300, color{255, 255, 255}}
-	player2 := paddle{pos{float32(winWidth) - 50, 100}, 20, 100, 300, color{255, 255, 255}}
+	player1 := paddle{pos{50, 100}, 20, 100, 300, 0, color{255, 255, 255}}
+	player2 := paddle{pos{float32(winWidth) - 50, 100}, 20, 100, 300, 0, color{255, 255, 255}}
 	ball := ball{getCenter(), 20, 400, 400, color{255, 255, 255}}
 
 	keyState := sdl.GetKeyboardState()
@@ -154,11 +223,21 @@ func main() {
 				return
 			}
 		}
-		clear(pixels)
-		player1.update(keyState, elapsedTime)
-		player2.aiUpdate(&ball)
-		ball.update(&player1, &player2, elapsedTime)
+		if state == play {
+			player1.update(keyState, elapsedTime)
+			player2.aiUpdate(&ball)
+			ball.update(&player1, &player2, elapsedTime)
+		} else if state == start {
+			if keyState[sdl.SCANCODE_SPACE] != 0 {
+				if player1.score == 3 || player2.score == 3 {
+					player1.score = 0
+					player2.score = 0
+				}
+				state = play
+			}
+		}
 
+		clear(pixels)
 		player1.draw(pixels)
 		player2.draw(pixels)
 		ball.draw(pixels)
