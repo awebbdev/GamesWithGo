@@ -61,6 +61,22 @@ func rescaleAndDraw(noise []float32,min, max float32, gradient []color, pixels [
 
 }
 
+func turbulence(x, y, frequency, lacunarity, gain float32, octaves int) float32 {
+	var sum float32
+	amplitude := float32(1)
+
+	for i := 0; i < octaves; i++{
+		f := snoise2(x*frequency, y*frequency) * amplitude
+		if f < 0 {
+			f = -1.0 *f
+		}
+		sum += f
+		frequency *= lacunarity
+		amplitude *= gain
+	}
+	return sum
+}
+
 func fbm2(x, y, frequency, lacunarity, gain float32, octaves int) float32{
 	var sum float32
 	amplitude := float32(1.0)
@@ -80,7 +96,7 @@ func makeNoise(pixels []byte, frequency, lacunarity, gain float32, octaves int) 
 	max := float32(-9999.0)
 	for y := 0; y < winHeight; y++ {
 		for x:= 0; x < winWidth; x++{
-			noise[i] = fbm2(float32(x), float32(y), frequency, lacunarity, gain, octaves)
+			noise[i] = turbulence(float32(x), float32(y), frequency, lacunarity, gain, octaves)
 			if noise[i] < min {
 				min = noise[i]
 			}else if noise[i] > max {
