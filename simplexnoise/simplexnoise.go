@@ -54,7 +54,7 @@ func rescaleAndDraw(noise []float32,min, max float32, gradient []color, pixels [
 
 	for i := range noise {
 		noise[i] = noise[i]*scale - offset
-		c := gradient[clamp(0,2255, int(noise[i]))]
+		c := gradient[clamp(0,255, int(noise[i]))]
 		p := i*4
 		pixels[p] = c.r
 		pixels[p+1] = c.g
