@@ -1,6 +1,8 @@
 package main
 
 import (
+	"sync"
+	"runtime"
 	"fmt"
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -88,23 +90,38 @@ func fbm2(x, y, frequency, lacunarity, gain float32, octaves int) float32{
 	return sum
 }
 
-func makeNoise(pixels []byte, frequency, lacunarity, gain float32, octaves int) {
+func makeNoise(pixels []byte, frequency, lacunarity, gain float32, octaves, w, h int) {
 	noise := make([]float32, winWidth*winHeight)
 	fmt.Printf("freq: %v, lac: %v, gain: %v, octaves: %v\n", frequency, lacunarity, gain, octaves)
-	i:= 0
 	min := float32(9999.0)
 	max := float32(-9999.0)
-	for y := 0; y < winHeight; y++ {
-		for x:= 0; x < winWidth; x++{
-			noise[i] = turbulence(float32(x), float32(y), frequency, lacunarity, gain, octaves)
-			if noise[i] < min {
-				min = noise[i]
-			}else if noise[i] > max {
-				max = noise[i]
+
+
+	numRoutines := runtime.NumCPU()
+	var wg sync.WaitGroup
+	wg.Add(numRoutines)
+	batchSize := len(noise) / numRoutines
+
+	for i := 0; i < numRoutines; i++ {
+		go func (i int) {
+			defer wg.Done()
+			start := i * batchSize
+			end := start + batchSize
+			for j := start; j < end; j++ {
+				x := j % w
+				y := (j-x) / h
+				noise[j] = turbulence(float32(x), float32(y), frequency, lacunarity, gain, octaves)
+
+				//this is not threadsafe
+				if noise[j] < min {
+					min = noise[j]
+				}else if noise[j] > max {
+					max = noise[j]
+				}
 			}
-			i++
-		}
+		}(i)
 	}
+	wg.Wait()
 	gradient := getDualGradient(color{0, 0, 175}, color{80, 160, 244}, color{12, 192, 75}, color{255, 255, 255})
 	rescaleAndDraw(noise, min, max, gradient, pixels)
 }
@@ -153,7 +170,7 @@ func main(){
 	gain := float32(0.2)
 	lacunarity := float32(3.0)
 
-	makeNoise(pixels, frequency, lacunarity, gain, octaves)
+	makeNoise(pixels, frequency, lacunarity, gain, octaves, winWidth, winHeight)
 	keyState := sdl.GetKeyboardState()
 
 
@@ -171,19 +188,19 @@ func main(){
 		}
 		if keyState[sdl.SCANCODE_O] != 0 {
 			octaves = octaves + 1*mult
-			makeNoise(pixels, frequency, lacunarity, gain, octaves)
+			makeNoise(pixels, frequency, lacunarity, gain, octaves, winWidth, winHeight)
 		}
 		if keyState[sdl.SCANCODE_F] != 0 {
 			frequency = frequency + .001*float32(mult)
-			makeNoise(pixels, frequency, lacunarity, gain, octaves)
+			makeNoise(pixels, frequency, lacunarity, gain, octaves, winWidth, winHeight)
 		}
 		if keyState[sdl.SCANCODE_G] != 0 {
 			gain = gain + 0.1*float32(mult)
-			makeNoise(pixels, frequency, lacunarity, gain, octaves)
+			makeNoise(pixels, frequency, lacunarity, gain, octaves, winWidth, winHeight)
 		}
 		if keyState[sdl.SCANCODE_L] != 0 {
 			lacunarity = lacunarity + 0.1*float32(mult)
-			makeNoise(pixels, frequency, lacunarity, gain, octaves)
+			makeNoise(pixels, frequency, lacunarity, gain, octaves, winWidth, winHeight)
 		}
 
 
