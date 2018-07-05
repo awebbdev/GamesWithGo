@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 	"math/rand"
+	"sort"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/awebbdev/gameswithgo/noise"
 	. "github.com/awebbdev/gameswithgo/vec3"
@@ -18,6 +19,21 @@ type balloon struct {
 	pos			Vector3
 	dir			Vector3
 	w, h 		int
+}
+
+type balloonArray []*balloon
+
+func (balloons balloonArray) Len() int {
+	return len(balloons)
+}
+
+func (balloons balloonArray) Swap(i, j int) {
+	balloons[i], balloons[j] = balloons[j], balloons[i]
+} 
+
+func (balloons balloonArray) Less(i,j int) bool {
+	diff := balloons[i].pos.Z - balloons[j].pos.Z
+	return diff < -1
 }
 
 func (balloon *balloon) update(elapsedTime float32){
@@ -37,7 +53,7 @@ func (balloon *balloon) update(elapsedTime float32){
 }
 
 func (balloon *balloon) draw (renderer *sdl.Renderer) { 
-	scale := balloon.pos.Z/200 + 1
+	scale := (balloon.pos.Z/200 + 1) / 2
 	newW := int32(float32(balloon.w) * scale)
 	newH := int32(float32(balloon.h) * scale)
 	x := int32(balloon.pos.X - float32(newW)/2)
@@ -123,7 +139,7 @@ func loadBalloons(renderer *sdl.Renderer, numBalloons int) []*balloon {
 	for i:= range balloons {
 		tex := balloonTextures[i%3]
 		pos := Vector3{rand.Float32() * float32(winWidth), rand.Float32() * float32(winHeight), rand.Float32() * float32(winDepth) }
-		dir := Vector3{rand.Float32(), rand.Float32(), rand.Float32()}
+		dir := Vector3{rand.Float32()*.5, rand.Float32()*.5, rand.Float32()*.5}
 		_, _, w, h, err := tex.Query()
 		if err != nil {
 			panic(err)
@@ -211,7 +227,7 @@ func main(){
 	cloudPixels := rescaleAndDraw(cloudNoise, min, max, cloudGradient, winWidth, winHeight)
 	cloudTexture := pixelsToTexture(renderer, cloudPixels, winWidth, winHeight)
  
-	balloons := loadBalloons(renderer, 100)
+	balloons := loadBalloons(renderer, 20)
 	var elapsedTime float32
 	for {
 		frameStart := time.Now()
@@ -227,6 +243,11 @@ func main(){
 
 		for _, balloon := range balloons {
 			balloon.update(elapsedTime)
+		}
+
+		sort.Sort(balloonArray(balloons))
+
+		for _, balloon := range balloons {
 			balloon.draw(renderer)
 		}
 
