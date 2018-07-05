@@ -12,8 +12,9 @@ const winWidth, winHeight int = 800, 600
 
 type texture struct {
 	pos
-	pixels []byte
+	pixels		[]byte
 	w, h, pitch int
+	scale 		float32
 }
 
 type rgba struct {
@@ -37,6 +38,33 @@ func setPixel(x, y int, c rgba, pixels []byte) {
 		pixels[index] = c.r
 		pixels[index + 1] = c.g
 		pixels[index + 2] = c.b
+	}
+}
+
+func (tex *texture) drawScaled(scaleX, scaleY float32, pixels []byte){
+	newWidth := int(float32(tex.w) * scaleX)
+	newHeight := int(float32(tex.h) * scaleY)
+	texW4 := tex.w*4
+	for y:=0; y < newHeight; y++ {
+		fy := float32(y) / float32(newHeight) * float32(tex.h-1)
+		fyi := int(fy)
+		screenY := int(fy*scaleY) + int(tex.y)
+		screenIndex := screenY*winWidth*4 + int(tex.x)*4
+		for x := 0; x < newWidth; x++ {
+			fx := float32(x) / float32(newWidth) * float32(tex.w-1)
+			screenX := int(fx*scaleX) + int(tex.x)
+			if screenX >= 0 && screenX < winWidth && screenY >= 0 && screenY < winHeight {
+				fxi4 := int(fx) * 4
+
+				pixels[screenIndex] = tex.pixels[fyi*texW4+fxi4]
+				screenIndex++
+				pixels[screenIndex] = tex.pixels[fyi*texW4+fxi4+1]
+				screenIndex++
+				pixels[screenIndex] = tex.pixels[fyi*texW4+fxi4+2]
+				screenIndex++
+				screenIndex++ //skip alpha
+			}
+		}
 	}
 }
 
@@ -122,7 +150,7 @@ func loadBalloons() []texture {
 				bIndex++
 			}
 		}
-		balloonTextures[i] = texture{pos{float32(i*60),float32(i*60)}, balloonPixels, w, h, w * 4}
+		balloonTextures[i] = texture{pos{float32(i*60),float32(i*60)}, balloonPixels, w, h, w * 4, float32(i + 1)}
 	}
 	return balloonTextures
 }
@@ -209,7 +237,7 @@ func main(){
 	cloudNoise, min, max := noise.MakeNoise(noise.FBM, 0.009, 0.5, 3, 3, winWidth, winHeight)
 	cloudGradient := getGradient(rgba{0,0,255}, rgba{255,255,255})
 	cloudPixels := rescaleAndDraw(cloudNoise, min, max, cloudGradient, winWidth, winHeight)
-	cloudTexture := texture{pos{0,0}, cloudPixels, winWidth, winHeight, winWidth * 4}
+	cloudTexture := texture{pos{0,0}, cloudPixels, winWidth, winHeight, winWidth * 4, 1}
 
 	pixels := make([]byte, winWidth*winHeight*4)
 	balloonTextures := loadBalloons()
@@ -223,8 +251,9 @@ func main(){
 		}
 
 		cloudTexture.draw(pixels)
+
 		for _, tex := range balloonTextures {
-			tex.drawAlpha(pixels)
+			tex.drawScaled(tex.scale, tex.scale, pixels)
 		}
 
 		balloonTextures[1].x += float32(1*dir)
