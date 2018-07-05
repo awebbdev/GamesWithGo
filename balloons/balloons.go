@@ -68,6 +68,51 @@ func (tex *texture) drawScaled(scaleX, scaleY float32, pixels []byte){
 	}
 }
 
+func flerp(a,b,pct float32)float32{
+	return a + (b-a)*pct
+}
+
+func blerp(c00, c01, c10, c11, tx,ty float32) float32{
+	return flerp(flerp(c00,c10,tx), flerp(c01,c11,tx),ty)
+}
+
+func (tex *texture) drawBilinearScaled(scaleX, scaleY float32, pixels []byte){
+	newWidth := int(float32(tex.w) * scaleX)
+	newHeight := int(float32(tex.h) * scaleY)
+	texW4 := tex.w*4
+	for y:=0; y < newHeight; y++ {
+		fy := float32(y) / float32(newHeight) * float32(tex.h-1)
+		fyi := int(fy)
+		screenY := int(fy*scaleY) + int(tex.y)
+		screenIndex := screenY*winWidth*4 + int(tex.x)*4
+		ty := fy - float32(fyi)
+		for x := 0; x < newWidth; x++ {
+			fx := float32(x) / float32(newWidth) * float32(tex.w-1)
+			screenX := int(fx*scaleX) + int(tex.x)
+			if screenX >= 0 && screenX < winWidth && screenY >= 0 && screenY < winHeight {
+				fxi := int(fx)
+
+				c00i := fyi * texW4 + fxi*4
+				c01i := fyi * texW4 + (fxi+1)*4
+				c10i := (fyi+1) * texW4 + fxi*4
+				c11i := (fyi+1) * texW4 + (fxi+1)*4
+
+				tx := fx - float32(fxi)
+
+				for i := 0 ; i < 4 ; i++ {
+					c00 := float32(tex.pixels[c00i+i])
+					c10 := float32(tex.pixels[c10i+i])
+					c01 := float32(tex.pixels[c01i+i])
+					c11 := float32(tex.pixels[c11i+i])
+
+					pixels[screenIndex] = byte(blerp(c00,c10,c01, c11, tx, ty))
+					screenIndex++
+				}
+			}
+		}
+	}
+}
+
 func (tex *texture) draw(pixels []byte) {
 	for y := 0; y < tex.h; y++ {
 		for x := 0; x < tex.w; x++ {
@@ -253,7 +298,7 @@ func main(){
 		cloudTexture.draw(pixels)
 
 		for _, tex := range balloonTextures {
-			tex.drawScaled(tex.scale, tex.scale, pixels)
+			tex.drawBilinearScaled(tex.scale, tex.scale, pixels)
 		}
 
 		balloonTextures[1].x += float32(1*dir)
