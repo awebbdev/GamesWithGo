@@ -85,8 +85,10 @@ func (balloon *balloon) update(elapsedTime float32,
 		yDiff := float32(mouseY) - y
 		dist := float32(math.Sqrt(float64(xDiff*xDiff + yDiff*yDiff)))
 		if dist < r {
-			sdl.QueueAudio(audioState.deviceID, audioState.explosionBytes)
-			sdl.PauseAudioDevice(audioState.deviceID, false)
+			if audioState != nil{
+				sdl.QueueAudio(audioState.deviceID, audioState.explosionBytes)
+				sdl.PauseAudioDevice(audioState.deviceID, false)
+			}
 		}
 	}
 	p := Add(balloon.pos, Mult(balloon.dir, elapsedTime))
@@ -273,14 +275,14 @@ func main(){
 	}
 	defer renderer.Destroy()
 
-	explosionBytes, audioSpec := sdl.LoadWAV("explode.wav")
+/* 	explosionBytes, audioSpec := sdl.LoadWAV("explode.wav")
 	audioID, err := sdl.OpenAudioDevice("", false, audioSpec, nil, 0)
 	if err != nil {
 		panic(err)
 	}
 	defer sdl.FreeWAV(explosionBytes)
 
-	audioState := audioState{explosionBytes, audioID, audioSpec}
+	audioState := audioState{explosionBytes, audioID, audioSpec} */
 
 	sdl.SetHint(sdl.HINT_RENDER_SCALE_QUALITY, "1")
 
@@ -313,7 +315,7 @@ func main(){
 		renderer.Copy(cloudTexture, nil, nil)
 
 		for _, balloon := range balloons {
-			balloon.update(elapsedTime, currentMouseState, previousMouseState, &audioState)
+			balloon.update(elapsedTime, currentMouseState, previousMouseState, nil)
 		}
 
 		sort.Sort(balloonArray(balloons))
