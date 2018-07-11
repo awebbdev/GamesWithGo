@@ -44,6 +44,20 @@ type balloon struct {
 	pos			Vector3
 	dir			Vector3
 	w, h 		int
+
+	exploding			bool
+	exploded			bool
+	explosionStart		time.Time
+	explosionInterval	float32
+	explosionTexture	*sdl.Texture
+}
+
+func newBalloon(tex *sdl.Texture, pos, dir Vector3, explosionTexture *sdl.Texture) *balloon {
+	_,_,w,h, err := tex.Query()
+	if err != nil {
+		panic(err)
+	}
+	return &balloon{tex, pos, dir, int(w), int(h), false, false, time.Now(), 50, explosionTexture}
 }
 
 type balloonArray []*balloon
@@ -76,6 +90,14 @@ func (balloon *balloon) getCircle() (x, y, r float32){
 func (balloon *balloon) update(elapsedTime float32, 
 	currentMouseState, previousMouseState mouseState, 
 	audioState *audioState){
+
+	numAnimations := 16
+	animationElapsed := float32(time.Since(balloon.explosionStart).Seconds() * 1000)
+	animationIndex := numAnimations - 1 - int(animationElapsed/balloon.explosionInterval)
+	if animationIndex < 0 {
+		balloon.exploding = false
+		balloon.exploded = true
+	}
 	
 	if !previousMouseState.leftButton && currentMouseState.leftButton {
 		x, y, r := balloon.getCircle()
@@ -89,6 +111,8 @@ func (balloon *balloon) update(elapsedTime float32,
 				sdl.QueueAudio(audioState.deviceID, audioState.explosionBytes)
 				sdl.PauseAudioDevice(audioState.deviceID, false)
 			}
+			balloon.exploding = true
+			balloon.explosionStart = time.Now()
 		}
 	}
 	p := Add(balloon.pos, Mult(balloon.dir, elapsedTime))
@@ -114,6 +138,17 @@ func (balloon *balloon) draw (renderer *sdl.Renderer) {
 	y := int32(balloon.pos.Y - float32(newH)/2)
 	rect:= &sdl.Rect{x, y, newW, newH}
 	renderer.Copy(balloon.tex, nil, rect)
+
+	if balloon.exploding {
+		numAnimations := 16
+		animationElapsed := float32(time.Since(balloon.explosionStart).Seconds() * 1000)
+		animationIndex := numAnimations - 1 - int(animationElapsed/balloon.explosionInterval)
+		animationX := animationIndex % 4
+		animationY := 64 * ((animationIndex - animationX)/ 4)
+		animationX *= 64
+		animationRect := &sdl.Rect{int32(animationX), int32(animationY), 64, 64}
+		renderer.Copy( balloon.explosionTexture, animationRect, rect)
+	}	
 }
 
 type rgba struct {
@@ -149,56 +184,59 @@ func pixelsToTexture(renderer *sdl.Renderer, pixels []byte, w,h int) *sdl.Textur
 	return tex
 }
 
+func imgFileToTexture(renderer *sdl.Renderer, filename string) *sdl.Texture{
+	infile, err := os.Open(filename)
+	if err != nil{
+		panic(err)
+	}
+	defer infile.Close()
+
+	img, err := png.Decode(infile)
+	if err != nil{
+		panic(err)
+	}	
+
+	w := img.Bounds().Max.X
+	h := img.Bounds().Max.Y
+
+	pixels := make([]byte,w*h*4)
+	index := 0
+	for y := 0; y < h;y++{
+		for x := 0; x < w; x++{
+			r,g,b,a  := img.At(x,y).RGBA()
+			pixels[index] = byte(r/256)
+			index++
+			pixels[index] = byte(g/256)
+			index++
+			pixels[index] = byte(b/256)
+			index++
+			pixels[index] = byte(a/256)
+			index++
+		}
+	}
+	tex := pixelsToTexture(renderer, pixels, w, h)
+	err = tex.SetBlendMode(sdl.BLENDMODE_BLEND)
+	if err != nil {
+		panic(err)
+	}
+	return tex
+}
+
 func loadBalloons(renderer *sdl.Renderer, numBalloons int) []*balloon {
+
+	explosionTexture := imgFileToTexture(renderer, "explosion.png")
+
 	balloonStrs := []string{"balloon_red.png", "balloon_blue.png", "balloon_green.png"}
 	balloonTextures := make([]*sdl.Texture, len(balloonStrs))
-	for i, bstr := range balloonStrs{
-		infile, err := os.Open(bstr)
-		if err != nil{
-			panic(err)
-		}
-		defer infile.Close()
-
-		img, err := png.Decode(infile)
-		if err != nil{
-			panic(err)
-		}
-
-		w := img.Bounds().Max.X
-		h := img.Bounds().Max.Y
-
-		balloonPixels := make([]byte,w*h*4)
-		bIndex := 0
-		for y := 0; y < h;y++{
-			for x := 0; x < w; x++{
-				r,g,b,a  := img.At(x,y).RGBA()
-				balloonPixels[bIndex] = byte(r/256)
-				bIndex++
-				balloonPixels[bIndex] = byte(g/256)
-				bIndex++
-				balloonPixels[bIndex] = byte(b/256)
-				bIndex++
-				balloonPixels[bIndex] = byte(a/256)
-				bIndex++
-			}
-		}
-		tex := pixelsToTexture(renderer, balloonPixels, w, h)
-		err = tex.SetBlendMode(sdl.BLENDMODE_BLEND)
-		if err != nil {
-			panic(err)
-		}
-		balloonTextures[i] = tex
+	for i, bstr := range balloonStrs{			
+		balloonTextures[i] = imgFileToTexture(renderer, bstr)
 	}
 	balloons := make([]*balloon, numBalloons)
 	for i:= range balloons {
 		tex := balloonTextures[i%3]
 		pos := Vector3{rand.Float32() * float32(winWidth), rand.Float32() * float32(winHeight), rand.Float32() * float32(winDepth) }
 		dir := Vector3{rand.Float32()*.5 - .25, rand.Float32()*.5 - .25, rand.Float32()*0.25 - .25/2 }
-		_, _, w, h, err := tex.Query()
-		if err != nil {
-			panic(err)
-		}
-		balloons[i] = &balloon{tex, pos, dir, int(w), int(h)}
+		balloons[i] = newBalloon(tex, pos, dir, explosionTexture)
 	}
 	return balloons
 }
