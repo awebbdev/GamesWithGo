@@ -65,7 +65,7 @@ func pixelsToTexture(renderer *sdl.Renderer, pixels []byte, w,h int) *sdl.Textur
 	return tex
 }
 
-func APTToTexture (node Node, w, h int, renderer *sdl.Renderer) *sdl.Texture {
+func APTToTexture (node1, node2 Node, w, h int, renderer *sdl.Renderer) *sdl.Texture {
 	//-1.0 and 1.0
 	scale := float32(255/2)
 	offset := float32(-1.0*scale)
@@ -76,13 +76,14 @@ func APTToTexture (node Node, w, h int, renderer *sdl.Renderer) *sdl.Texture {
 		for xi := 0; xi < w; xi++ {
 			x := float32(xi)/float32(w)*2 - 1
 
-			c := node.Eval(x,y)
+			c := node1.Eval(x,y)
+			c2 := node2.Eval(x,y)
 
 			pixels[pixelIndex] = byte(c*scale - offset)
 			pixelIndex++
-			pixels[pixelIndex] = byte(c*scale - offset)
+			pixels[pixelIndex] = byte(c2*scale - offset)
 			pixelIndex++
-			pixels[pixelIndex] = byte(c*scale - offset)
+			pixels[pixelIndex] = 0 //byte(c*scale - offset)
 			pixelIndex++
 			pixelIndex++
 
@@ -132,7 +133,7 @@ func main(){
 	plus.LeftChild = sine
 	plus.RightChild = y
 
-	tex := APTToTexture(plus, 800, 600, renderer)
+	tex := APTToTexture(plus, sine, 800, 600, renderer)
 
 	for {
 		frameStart := time.Now()
