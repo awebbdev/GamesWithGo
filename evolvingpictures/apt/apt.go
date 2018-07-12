@@ -16,10 +16,10 @@ import (
 )
 
 type Node interface {
-	Eval(x,y float32) float32
+	Eval(x, y float32) float32
 	String() string
-	AddRandom(node Node) 
-	NodeCounts() (nodeCount, nilCount int )
+	AddRandom(node Node)
+	NodeCounts() (nodeCount, nilCount int)
 }
 
 type LeafNode struct{}
@@ -58,23 +58,6 @@ type DoubleNode struct {
 	RightChild 	Node
 }
 
-func (double DoubleNode) AddRandom(node Node){
-	r := rand.Intn(2)
-	if r == 0 {
-		if double.LeftChild == nil {
-			double.LeftChild = node
-		} else {
-			double.LeftChild.AddRandom(node)
-		}
-	} else {
-		if double.RightChild == nil {
-			double.RightChild = node
-		} else {
-			double.RightChild.AddRandom(node)
-		}
-	}
-}
-
 func (double *DoubleNode) NodeCounts() (nodeCount, nilCount int) {
 	var leftCount, leftNilCount, rightCount, rightNilCount int
 	if double.LeftChild == nil {
@@ -90,6 +73,23 @@ func (double *DoubleNode) NodeCounts() (nodeCount, nilCount int) {
 		rightCount, rightNilCount = double.RightChild.NodeCounts()
 	}
 	return 1 + rightCount + leftCount, rightNilCount + leftNilCount
+}
+
+func (double *DoubleNode) AddRandom(node Node){
+	r := rand.Intn(2)
+	if r == 0 {
+		if double.LeftChild == nil {
+			double.LeftChild = node
+		} else {
+			double.LeftChild.AddRandom(node)
+		}
+	} else {
+		if double.RightChild == nil {
+			double.RightChild = node
+		} else {
+			double.RightChild.AddRandom(node)
+		}
+	}
 }
 
 type OpSin struct {

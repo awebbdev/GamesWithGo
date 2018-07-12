@@ -127,7 +127,7 @@ func main() {
 	var currentMouseState = getMouseState()
 	//var previousMouseState = currentMouseState
 
-	rand.Seed(5)
+	rand.Seed(time.Now().UTC().UnixNano())
 
 	aptR := GetRandomNode()
 	aptG := GetRandomNode()
@@ -141,34 +141,39 @@ func main() {
 	for i := 0; i < num; i++ {
 		aptG.AddRandom(GetRandomNode())
 	}
+
 	num = rand.Intn(20)
 	for i := 0; i < num; i++ {
 		aptB.AddRandom(GetRandomNode())
 	}
+
 	for {
 		_, nilCount := aptR.NodeCounts()
 		if nilCount == 0 {
-			fmt.Println("R_Break")
 			break
 		}
 		aptR.AddRandom(GetRandomLeaf())
 	}
+
 	for {
 		_, nilCount := aptG.NodeCounts()
 		if nilCount == 0 {
-			fmt.Println("G_Break")
 			break
 		}
 		aptG.AddRandom(GetRandomLeaf())
 	}
+
 	for {
 		_, nilCount := aptB.NodeCounts()
 		if nilCount == 0 {
-			fmt.Println("B_Break")
 			break
 		}
 		aptB.AddRandom(GetRandomLeaf())
 	}
+
+	fmt.Println("R:", aptR)
+	fmt.Println("G:", aptG)
+	fmt.Println("B:", aptB)
 
 	tex := aptToTexture(aptR, aptG, aptB, 800, 600, renderer)
 
