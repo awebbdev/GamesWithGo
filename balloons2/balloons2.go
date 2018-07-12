@@ -87,47 +87,65 @@ func (balloon *balloon) getCircle() (x, y, r float32){
 	return x, y, r
 }
 
-func (balloon *balloon) update(elapsedTime float32, 
+func updateBalloons(balloons []*balloon, elapsedTime float32, 
 	currentMouseState, previousMouseState mouseState, 
-	audioState *audioState){
-
+	audioState *audioState) []*balloon {
 	numAnimations := 16
-	animationElapsed := float32(time.Since(balloon.explosionStart).Seconds() * 1000)
-	animationIndex := numAnimations - 1 - int(animationElapsed/balloon.explosionInterval)
-	if animationIndex < 0 {
-		balloon.exploding = false
-		balloon.exploded = true
-	}
-	
-	if !previousMouseState.leftButton && currentMouseState.leftButton {
-		x, y, r := balloon.getCircle()
-		mouseX := currentMouseState.x
-		mouseY := currentMouseState.y
-		xDiff := float32(mouseX) - x
-		yDiff := float32(mouseY) - y
-		dist := float32(math.Sqrt(float64(xDiff*xDiff + yDiff*yDiff)))
-		if dist < r {
-			if audioState != nil{
-				sdl.QueueAudio(audioState.deviceID, audioState.explosionBytes)
-				sdl.PauseAudioDevice(audioState.deviceID, false)
+	balloonClicked := false
+	balloonsExploded := false
+	for i := len(balloons) - 1; i >= 0 ; i--{
+		balloon := balloons[i]
+		if balloon.exploding {
+			animationElapsed := float32(time.Since(balloon.explosionStart).Seconds() * 1000)
+			animationIndex := numAnimations - 1 - int(animationElapsed/balloon.explosionInterval)
+			if animationIndex < 0 {
+				balloon.exploding = false
+				balloon.exploded = true
+				balloonsExploded = true
 			}
-			balloon.exploding = true
-			balloon.explosionStart = time.Now()
 		}
-	}
-	p := Add(balloon.pos, Mult(balloon.dir, elapsedTime))
+		
+		if !balloonClicked && !previousMouseState.leftButton && currentMouseState.leftButton {
+			x, y, r := balloon.getCircle()
+			mouseX := currentMouseState.x
+			mouseY := currentMouseState.y
+			xDiff := float32(mouseX) - x
+			yDiff := float32(mouseY) - y
+			dist := float32(math.Sqrt(float64(xDiff*xDiff + yDiff*yDiff)))
+			if dist < r {
+				balloonClicked = true
+				if audioState != nil{
+					sdl.QueueAudio(audioState.deviceID, audioState.explosionBytes)
+					sdl.PauseAudioDevice(audioState.deviceID, false)
+				}
+				balloon.exploding = true
+				balloon.explosionStart = time.Now()
+			}
+		}
+		p := Add(balloon.pos, Mult(balloon.dir, elapsedTime))
 
-	if p.X < 0 || p.X > float32(winWidth) {
-		balloon.dir.X = -balloon.dir.X
-	}
-	if p.Y < 0 || p.Y > float32(winHeight) {
-		balloon.dir.Y = -balloon.dir.Y
-	}
-	if p.Z < 0 || p.Z > float32(winDepth) {
-		balloon.dir.Z = -balloon.dir.Z
-	}
+		if p.X < 0 || p.X > float32(winWidth) {
+			balloon.dir.X = -balloon.dir.X
+		}
+		if p.Y < 0 || p.Y > float32(winHeight) {
+			balloon.dir.Y = -balloon.dir.Y
+		}
+		if p.Z < 0 || p.Z > float32(winDepth) {
+			balloon.dir.Z = -balloon.dir.Z
+		}
 
-	balloon.pos = Add(balloon.pos, Mult(balloon.dir, elapsedTime))
+		balloon.pos = Add(balloon.pos, Mult(balloon.dir, elapsedTime))
+	}
+	if balloonsExploded {
+		filteredBalloons := balloons[0:0]
+		for _, balloon := range balloons {
+			if !balloon.exploded {
+				filteredBalloons = append(filteredBalloons, balloon)
+			}
+		}
+		balloons = filteredBalloons
+	}
+	return balloons
 }
 
 func (balloon *balloon) draw (renderer *sdl.Renderer) { 
@@ -313,7 +331,7 @@ func main(){
 	}
 	defer renderer.Destroy()
 
-/* 	explosionBytes, audioSpec := sdl.LoadWAV("explode.wav")
+/*  	explosionBytes, audioSpec := sdl.LoadWAV("explode.wav")
 	audioID, err := sdl.OpenAudioDevice("", false, audioSpec, nil, 0)
 	if err != nil {
 		panic(err)
@@ -351,11 +369,8 @@ func main(){
 		currentMouseState = getMouseState()
 		
 		renderer.Copy(cloudTexture, nil, nil)
-
-		for _, balloon := range balloons {
-			balloon.update(elapsedTime, currentMouseState, previousMouseState, nil)
-		}
-
+		balloons = updateBalloons(balloons, elapsedTime, currentMouseState, previousMouseState, nil)
+		
 		sort.Sort(balloonArray(balloons))
 
 		for _, balloon := range balloons {
