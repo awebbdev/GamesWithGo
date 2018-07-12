@@ -1,5 +1,15 @@
 package main
 
+/* ToDos:
+	1. Implement Insertion Sort for Balloons ( https://en.wikipedia.org/wiki/Insertion_sort )
+
+	2. Implement collisions
+			Treat balloons as spferes - only check distance between the center of baloon (use vec3)
+			Minimuim translation vector
+			This is supposed to be hard
+*/
+
+
 import (
 	"math"
 	"github.com/veandco/go-sdl2/sdl"
