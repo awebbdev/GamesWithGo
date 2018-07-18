@@ -69,3 +69,17 @@ func (button *ImageButton) Update(mouseState *MouseState) {
 		button.WasRightClicked = false
 	}
 }
+
+func (button *ImageButton) Draw(renderer *sdl.Renderer) {
+
+	if button.IsSelected {
+		boarderRect := button.Rect
+		boarderThickness := int32(float32(boarderRect.W)* .01)
+		boarderRect.W = button.Rect.W+boarderThickness
+		boarderRect.H = button.Rect.H+boarderThickness
+		boarderRect.X -= boarderThickness
+		boarderRect.Y -= boarderThickness
+		renderer.Copy(button.SelectedTex, nil, &boarderRect)
+	}
+	renderer.Copy(button.Image, nil, &button.Rect)
+}
