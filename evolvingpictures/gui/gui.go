@@ -6,7 +6,7 @@ import(
 type MouseState struct {
 	LeftButton  	bool
 	RightButton 	bool
-	PrevLeftBuutton bool
+	PrevLeftButton bool
 	PrevRightButton bool
 	X, Y        	int
 	PrevX, PrevY 	int
@@ -27,7 +27,7 @@ func GetMouseState() *MouseState {
 func (mouseState *MouseState) Update() {
 	mouseState.PrevX = mouseState.X
 	mouseState.PrevY = mouseState.Y
-	mouseState.PrevLeftBuutton = mouseState.LeftButton
+	mouseState.PrevLeftButton = mouseState.LeftButton
 	mouseState.PrevRightButton = mouseState.RightButton
 
 	X,Y,mouseButtonState := sdl.GetMouseState()
@@ -62,7 +62,7 @@ func NewImageButton(renderer *sdl.Renderer, image *sdl.Texture, rect sdl.Rect, s
 
 func (button *ImageButton) Update(mouseState *MouseState) {
 	if button.Rect.HasIntersection(&sdl.Rect{int32(mouseState.X), int32(mouseState.Y), 1, 1}){
-		button.WasLeftClicked = mouseState.PrevLeftBuutton && !mouseState.LeftButton
+		button.WasLeftClicked = mouseState.PrevLeftButton && !mouseState.LeftButton
 		button.WasRightClicked = mouseState.PrevRightButton && !mouseState.RightButton
 	} else {
 		button.WasLeftClicked = false
@@ -73,13 +73,13 @@ func (button *ImageButton) Update(mouseState *MouseState) {
 func (button *ImageButton) Draw(renderer *sdl.Renderer) {
 
 	if button.IsSelected {
-		boarderRect := button.Rect
-		boarderThickness := int32(float32(boarderRect.W)* .01)
-		boarderRect.W = button.Rect.W+boarderThickness
-		boarderRect.H = button.Rect.H+boarderThickness
-		boarderRect.X -= boarderThickness
-		boarderRect.Y -= boarderThickness
-		renderer.Copy(button.SelectedTex, nil, &boarderRect)
+		borderRect := button.Rect
+		borderThickness := int32(float32(borderRect.W) * .01)
+		borderRect.W = button.Rect.W + borderThickness*2
+		borderRect.H = button.Rect.H + borderThickness*2
+		borderRect.X -= borderThickness
+		borderRect.Y -= borderThickness
+		renderer.Copy(button.SelectedTex, nil, &borderRect)
 	}
 	renderer.Copy(button.Image, nil, &button.Rect)
 }
