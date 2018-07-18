@@ -22,23 +22,6 @@ type audioState struct {
 	audiosSpec     *sdl.AudioSpec
 }
 
-type mouseState struct {
-	leftButton  bool
-	rightButton bool
-	x, y        int
-}
-
-func getMouseState() mouseState {
-	mouseX, mouseY, mouseButtonState := sdl.GetMouseState()
-	leftButton := mouseButtonState & sdl.ButtonLMask()
-	rightButton := mouseButtonState & sdl.ButtonRMask()
-	var result mouseState
-	result.x = int(mouseX)
-	result.y = int(mouseY)
-	result.leftButton = !(leftButton == 0)
-	result.rightButton = !(rightButton == 0)
-	return result
-}
 
 type rgba struct {
 	r, g, b byte
