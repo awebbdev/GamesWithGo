@@ -70,7 +70,7 @@ func NewPicture() *picture {
 	return p
 }
 
-func (p *picture) Mutate() {
+func (p *picture) mutate() {
 	r := rand.Intn(3)
 	var nodeToMutate Node
 	switch r {
