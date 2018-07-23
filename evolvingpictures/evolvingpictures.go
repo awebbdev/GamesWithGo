@@ -10,7 +10,7 @@ import (
 )
 
 var winWidth, winHeight int = 800, 600
-var rows, cols, numPics int = 3, 3, rows * cols
+var rows, cols, numPics int = 4, 4, rows * cols
 
 type pixelResult struct {
 	pixels  []byte
@@ -70,6 +70,53 @@ func NewPicture() *picture {
 	return p
 }
 
+func (p *picture) pickRandomColor() Node {
+	r := rand.Intn(3)
+	switch r {
+	case 0 :
+		return p.r
+	case 1:
+		return p.g
+	case 2:
+		return p.b
+	}
+	return nil
+}
+
+func cross(a *picture, b *picture) *picture {
+	aCopy := &picture{CopyTree(a.r, nil), CopyTree(a.g, nil), CopyTree(a.b, nil)}
+	aColor := aCopy.pickRandomColor()
+	bColor := b.pickRandomColor()
+
+	aIndex := rand.Intn(aColor.NodeCount())
+	aNode, _ := GetNthNode(aColor, aIndex,0)
+
+	bIndex := rand.Intn(bColor.NodeCount())
+	bNode,_ := GetNthNode(bColor, bIndex, 0)
+	bNodeCopy := CopyTree(bNode, bNode.GetParent())
+
+	ReplaceNode(aNode, bNodeCopy)
+	return aCopy
+}
+
+func evolve(survivors []*picture) []*picture {
+	newPics := make([]*picture, numPics)
+	i := 0
+	for i < len(survivors) {
+		a := survivors[i]
+		b := survivors[rand.Intn(len(survivors))]
+		newPics[i] = cross(a,b)
+		i++
+	}
+	for i < len(newPics) {
+		a := survivors[rand.Intn(len(survivors))]
+		b := survivors[rand.Intn(len(survivors))]
+		newPics[i] = cross(a,b)
+		i++
+	}
+	return newPics
+}
+
 func (p *picture) mutate() {
 	r := rand.Intn(3)
 	var nodeToMutate Node
@@ -123,7 +170,7 @@ func pixelsToTexture(renderer *sdl.Renderer, pixels []byte, w, h int) *sdl.Textu
 	return tex
 }
 
-func aptToPixels(pic *picture, w, h int, renderer *sdl.Renderer) []byte {
+func aptToPixels(pic *picture, w, h int) []byte {
 	// -1.0 and 1.0
 	scale := float32(255 / 2)
 	offset := float32(-1.0 * scale)
@@ -198,13 +245,18 @@ func main() {
 	}
 
 	picWidth := int(float32(winWidth/cols) * float32(.9))
-	picHeight := int(float32(winHeight/rows) * float32(.9))
+	picHeight := int(float32(winHeight/rows) * float32(.8))
 
 	pixelsChannel := make(chan pixelResult, numPics)
 	buttons := make([]*ImageButton, numPics)
+
+	evolveButtonTex := GetSinglePixelTex(renderer, &sdl.Color{255, 255, 255, 0})
+	evolveRect := sdl.Rect{int32(float32(winWidth)/2 - float32(picWidth)/2), int32(float32(winHeight) - (float32(winHeight)* .10)), int32(picWidth), int32(float32(winHeight)*.08)}
+	evolveButton := NewImageButton(renderer, evolveButtonTex, evolveRect, sdl.Color{255, 255, 255, 0})
+
 	for i := range picTrees {
 		go func(i int) {
-			pixels := aptToPixels(picTrees[i], picWidth, picHeight, renderer)
+			pixels := aptToPixels(picTrees[i], picWidth, picHeight)
 			pixelsChannel <- pixelResult{pixels, i}
 		}(i)
 	}
@@ -263,6 +315,28 @@ func main() {
 				button.Draw(renderer)
 			}
 		}
+		evolveButton.Update(mouseState)
+		if evolveButton.WasLeftClicked {
+			selectedPictures := make([]*picture, 0)
+			for i, button := range buttons {
+				if button.IsSelected {
+					selectedPictures = append(selectedPictures, picTrees[i])
+				}
+			}
+			if len(selectedPictures) != 0 {
+				for i := range buttons {
+					buttons[i] = nil
+				}
+				picTrees = evolve(selectedPictures)
+				for i := range picTrees {
+					go func(i int) {
+						pixels := aptToPixels(picTrees[i], picWidth, picHeight)
+						pixelsChannel <- pixelResult{pixels, i}
+					}(i)
+				}
+			}
+		}
+		evolveButton.Draw(renderer)
 		renderer.Present()
 		elapsedTime = float32(time.Since(frameStart).Seconds() * 1000)
 		if elapsedTime < 5 {
