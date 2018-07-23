@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"math"
 	"github.com/awebbdev/gameswithgo/noise"
+	"reflect"
 )
 
 // + / * - Sin Cos Atan SimplexNoise X Y Constants...
@@ -24,6 +25,7 @@ type Node interface {
 	String() string
 	SetParent(parent Node)
 	GetParent() Node
+	SetChildren( []Node ) 
 	GetChildren() []Node
 	AddRandom(node Node)
 	AddLeaf(leaf Node) bool
@@ -37,6 +39,30 @@ type BaseNode struct {
 
 type OpLerp struct {
 	BaseNode
+}
+
+func CopyTree(node Node, parent Node) Node {
+	copy := reflect.New(reflect.ValueOf(node).Elem().Type()).Interface().(Node)
+
+	copy.SetParent(parent)
+	copyChildren := make([]Node, len(node.GetChildren()))
+	copy.SetChildren(copyChildren)
+	for i := range copyChildren {
+		copyChildren[i] = CopyTree(node.GetChildren()[i], copy)
+	}
+	return copy
+}
+
+func ReplaceNode(old Node, new Node) {
+	oldParent := old.GetParent()
+	if oldParent != nil {
+		for i, child := range oldParent.GetChildren() {
+			if child == old {
+				oldParent.GetChildren()[i] = new
+			}
+		}
+	}
+	new.SetParent(oldParent)
 }
 
 func GetNthNode(node Node, n, count int) (Node, int) {
@@ -120,6 +146,10 @@ func (node *BaseNode) String() string {
 
 func (node *BaseNode) SetParent(parent Node) {
 	node.Parent = parent
+}
+
+func (node *BaseNode) SetChildren(children []Node) {
+	node.Children = children
 }
 
 func (node *BaseNode) AddRandom(nodeToAdd Node) {
