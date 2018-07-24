@@ -272,11 +272,22 @@ func main() {
 
 	var elapsedTime float32
 
+	args := os.Args
+	if len(args) > 1 {
+		fileBytes, err := ioutil.ReadFile(args[1])
+		if err != nil {
+			panic(err)
+		}
+		fileStr := string(fileBytes)
+		_ = BeginLexing(fileStr)
+	}
+
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	picTrees := make([]*picture, numPics)
 	for i := range picTrees {
 		picTrees[i] = NewPicture()
+		return
 	}
 
 	picWidth := int(float32(winWidth/cols) * float32(.9))
