@@ -1,12 +1,16 @@
 package main
 
 import (
+	"strconv"
+	"strings"
 	"math/rand"
 	"fmt"
 	. "github.com/awebbdev/gameswithgo/evolvingpictures/apt"
 	. "github.com/awebbdev/gameswithgo/evolvingpictures/gui"
 	"github.com/veandco/go-sdl2/sdl"
 	"time"
+	"io/ioutil"
+	"os"
 )
 
 var winWidth, winHeight int = 800, 600
@@ -18,8 +22,9 @@ type pixelResult struct {
 }
 
 type guiState struct {
-	zoom bool
-	zoomImage *sdl.Texture
+	zoom 		bool
+	zoomImage 	*sdl.Texture
+	zoomTree	*picture
 }
 
 type audioState struct {
@@ -212,6 +217,33 @@ func aptToPixels(pic *picture, w, h int) []byte {
 	return pixels
 }
 
+func saveTree(p *picture) {
+	files, err := ioutil.ReadDir("./")
+	if err != nil {
+		panic(err)
+	}
+	biggestNumber := 0
+	for _,f := range files {
+		name := f.Name()
+		if strings.HasSuffix(name, ".apt") {
+			numberString := strings.TrimSuffix(name, ".apt")
+			num, err := strconv.Atoi(numberString)
+			if err == nil {
+				if num > biggestNumber {
+					biggestNumber = num
+				}
+			}
+		}
+	}
+	saveName := strconv.Itoa(biggestNumber+1)+".apt"
+	file, err := os.Create(saveName)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+	fmt.Fprintf(file, p.String())
+}
+
 func main() {
 	sdl.LogSetAllPriority(sdl.LOG_PRIORITY_VERBOSE)
 	err := sdl.Init(sdl.INIT_EVERYTHING)
@@ -266,8 +298,12 @@ func main() {
 
 	rand.Seed(time.Now().UTC().UnixNano())
 	keyboardState := sdl.GetKeyboardState()
+	prevKeyboardState := make([]uint8, len(keyboardState))
+	for i,v := range keyboardState {
+		prevKeyboardState[i] = v
+	}
 	mouseState := GetMouseState()
-	state := guiState{false, nil}
+	state := guiState{false, nil, nil}
 	for {
 		frameStart := time.Now()
 		mouseState.Update()
@@ -320,6 +356,7 @@ func main() {
 						zoomTex := pixelsToTexture(renderer, zoomPixels, winWidth*2, winHeight*2)
 						state.zoomImage = zoomTex
 						state.zoom = true
+						state.zoomTree = picTrees[i]
 					}
 					button.Draw(renderer)
 				}
@@ -350,9 +387,15 @@ func main() {
 			if !mouseState.RightButton && mouseState.PrevRightButton {
 				state.zoom = false
 			}
+			if keyboardState[sdl.SCANCODE_S] == 0 && prevKeyboardState[sdl.SCANCODE_S] != 0 {
+				saveTree(state.zoomTree)
+			}
 			renderer.Copy(state.zoomImage, nil, nil)
 		}
 		renderer.Present()
+		for i,v := range keyboardState {
+			prevKeyboardState[i] = v
+		}
 		elapsedTime = float32(time.Since(frameStart).Seconds() * 1000)
 		if elapsedTime < 5 {
 			sdl.Delay(5 - uint32(elapsedTime))
