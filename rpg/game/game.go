@@ -1,0 +1,53 @@
+package game
+
+import (
+	"bufio"
+	"os"
+)
+
+type GameUI interface {
+	Draw(*Level)
+}
+
+type Tile rune
+const (
+	stoneWall Tile = '#'
+	dirtFloor Tile = '.'
+	door Tile = '|'
+)
+
+type Level struct {
+	Map[][]Tile
+}
+
+func loadLevelForFile(filename string) *Level {
+	file, err := os.Open(filename)
+	if err != nil{
+		panic(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	levelLines := make([]string, 0)
+	longestRow := 0
+	index := 0
+	for scanner.Scan() {
+		levelLines = append(levelLines, scanner.Text())
+		if len(levelLines[index]) > longestRow {
+			longestRow = len(levelLines[index])
+		}
+		index++
+	}
+	level := &Level{}
+	level.Map = make([][]Tile,len(levelLines))
+	for i := range level.Map {
+		level.Map[i] = make([]Tile, longestRow)
+
+	}
+	return level
+}
+
+func Run(ui GameUI) {
+	level := loadLevelForFile("game/maps/level1.map")
+	ui.Draw(level)
+}
