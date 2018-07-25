@@ -45,7 +45,7 @@ type picture struct {
 }
 
 func (p *picture) String() string {
-	return "R" + p.r.String() + "\nG" + p.g.String() + "\nB" + p.b.String()
+	return "( Picture\n\t " + p.r.String() + "\n\t" + p.g.String() + "\n\t" + p.b.String() + "\n)"
 }
 
 func NewPicture() *picture {
@@ -271,23 +271,11 @@ func main() {
 	sdl.SetHint(sdl.HINT_RENDER_SCALE_QUALITY, "1")
 
 	var elapsedTime float32
-
-	args := os.Args
-	if len(args) > 1 {
-		fileBytes, err := ioutil.ReadFile(args[1])
-		if err != nil {
-			panic(err)
-		}
-		fileStr := string(fileBytes)
-		_ = BeginLexing(fileStr)
-	}
-
 	rand.Seed(time.Now().UTC().UnixNano())
 
 	picTrees := make([]*picture, numPics)
 	for i := range picTrees {
 		picTrees[i] = NewPicture()
-		return
 	}
 
 	picWidth := int(float32(winWidth/cols) * float32(.9))
@@ -315,6 +303,21 @@ func main() {
 	}
 	mouseState := GetMouseState()
 	state := guiState{false, nil, nil}
+	args := os.Args
+	if len(args) > 1 {
+		fileBytes, err := ioutil.ReadFile(args[1])
+		if err != nil {
+			panic(err)
+		}
+		fileStr := string(fileBytes)
+		pictureNode := BeginLexing(fileStr)
+		p := &picture{pictureNode.GetChildren()[0], pictureNode.GetChildren()[1], pictureNode.GetChildren()[2]}
+		pixels := aptToPixels(p, winWidth, winHeight)
+		tex := pixelsToTexture(renderer, pixels, winWidth, winHeight)
+		state.zoom = true
+		state.zoomImage = tex
+		state.zoomTree = p
+	}
 	for {
 		frameStart := time.Now()
 		mouseState.Update()
@@ -332,7 +335,6 @@ func main() {
 				}
 			}
 		}
-
 		if keyboardState[sdl.SCANCODE_ESCAPE] != 0 {
 			return
 		}
