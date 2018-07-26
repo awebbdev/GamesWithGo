@@ -6,14 +6,21 @@ import (
 )
 
 type GameUI interface {
-	DrawThenGetInput(*Level) *Input
+	Draw(*Level)
+	GetInput() *Input
 }
 
+type InputType int
+const (
+	Up InputType = iota
+	Down
+	Left
+	Right
+	Quit
+)
+
 type Input struct {
-	up    bool
-	down  bool
-	left  bool
-	right bool
+	Typ InputType
 }
 
 type Tile rune
@@ -110,7 +117,11 @@ func Run(ui GameUI) {
 	level := loadLevelFromFile("game/maps/level1.map")
 
 	for {
-		_ = ui.DrawThenGetInput(level)
-		//do something with the input
+		ui.Draw(level)
+		input := ui.GetInput()
+
+		if input != nil && input.Typ == Quit {
+			return
+		}
 	}
 }

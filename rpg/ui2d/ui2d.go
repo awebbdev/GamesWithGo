@@ -131,7 +131,7 @@ type UI2d struct {
 
 }
 
-func (ui *UI2d) DrawThenGetInput(level *game.Level) *game.Input {
+func (ui *UI2d) Draw(level *game.Level) {
 	rand.Seed(1)
 	for y, row := range level.Map {
 		for x, tile := range row {
@@ -143,8 +143,16 @@ func (ui *UI2d) DrawThenGetInput(level *game.Level) *game.Input {
 			}
 		}
 	}
-	//21,59
 	renderer.Copy(textureAtlas, &sdl.Rect{21*32, 59*32, 32, 32}, &sdl.Rect{int32(level.Player.X*32), int32(level.Player.Y*32), 32, 32})
 	renderer.Present()
+}
+
+func (ui *UI2d) GetInput() *game.Input {
+	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent(){
+		switch event.(type) {
+		case *sdl.QuitEvent:
+			return &game.Input{Typ: game.Quit}
+		}
+	}
 	return nil
 }
