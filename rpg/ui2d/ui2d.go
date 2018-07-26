@@ -20,6 +20,8 @@ var textureIndex map[game.Tile][]sdl.Rect
 var prevKeyboardState []uint8
 var keyboardState []uint8
 
+var centerX, centerY int
+
 func loadTextureIndex() {
 	textureIndex = make(map[game.Tile][]sdl.Rect)
 	infile, err := os.Open("ui2d/assets/atlas-index.txt")
@@ -133,6 +135,9 @@ func init() {
 	for i,v := range keyboardState {
 		prevKeyboardState[i] = v
 	}
+
+	centerX = -1
+	centerY = -1
 }
 
 type UI2d struct {
@@ -140,6 +145,22 @@ type UI2d struct {
 }
 
 func (ui *UI2d) Draw(level *game.Level) {
+	if centerX == -1 && centerY == -1 {
+		centerX = level.Player.X
+		centerY = level.Player.Y
+	}
+	limit := 5
+	if level.Player.X > centerX+limit {
+		centerX++
+	} else if level.Player.X < centerX-limit {
+		centerX--
+	} else if level.Player.Y > centerY+limit {
+		centerY++
+	} else if level.Player.Y < centerY-limit {
+		centerY--
+	}
+	offsetX := int32((winWidth / 2) - centerX*32)
+	offsetY := int32((winHeight / 2) - centerY*32)
 	renderer.Clear()
 	rand.Seed(1)
 	for y, row := range level.Map {
@@ -147,12 +168,12 @@ func (ui *UI2d) Draw(level *game.Level) {
 			if tile != game.Blank{
 				srcRects := textureIndex[tile]
 				srcRect := srcRects[rand.Intn(len(srcRects))]
-				dstRect := sdl.Rect{int32(x * 32), int32(y * 32), 32, 32}
+				dstRect := sdl.Rect{int32(x * 32) + offsetX, int32(y * 32) + offsetY, 32, 32}
 				renderer.Copy(textureAtlas, &srcRect, &dstRect)
 			}
 		}
 	}
-	renderer.Copy(textureAtlas, &sdl.Rect{21*32, 59*32, 32, 32}, &sdl.Rect{int32(level.Player.X*32), int32(level.Player.Y*32), 32, 32})
+	renderer.Copy(textureAtlas, &sdl.Rect{21*32, 59*32, 32, 32}, &sdl.Rect{int32(level.Player.X*32) + offsetX, int32(level.Player.Y*32) + offsetY, 32, 32})
 	renderer.Present()
 }
 
