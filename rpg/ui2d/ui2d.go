@@ -17,6 +17,8 @@ const winWidth, winHeight = 1280, 700
 var renderer *sdl.Renderer
 var textureAtlas *sdl.Texture
 var textureIndex map[game.Tile][]sdl.Rect
+var prevKeyboardState []uint8
+var keyboardState []uint8
 
 func loadTextureIndex() {
 	textureIndex = make(map[game.Tile][]sdl.Rect)
@@ -125,6 +127,12 @@ func init() {
 
 	textureAtlas = imgFileToTexture("ui2d/assets/tiles.png")
 	loadTextureIndex()
+
+	keyboardState = sdl.GetKeyboardState()
+	prevKeyboardState = make([]uint8, len(keyboardState))
+	for i,v := range keyboardState {
+		prevKeyboardState[i] = v
+	}
 }
 
 type UI2d struct {
@@ -132,6 +140,7 @@ type UI2d struct {
 }
 
 func (ui *UI2d) Draw(level *game.Level) {
+	renderer.Clear()
 	rand.Seed(1)
 	for y, row := range level.Map {
 		for x, tile := range row {
@@ -148,11 +157,31 @@ func (ui *UI2d) Draw(level *game.Level) {
 }
 
 func (ui *UI2d) GetInput() *game.Input {
-	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent(){
-		switch event.(type) {
-		case *sdl.QuitEvent:
-			return &game.Input{Typ: game.Quit}
+	for {
+		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent(){
+			switch event.(type) {
+			case *sdl.QuitEvent:
+				return &game.Input{Typ: game.Quit}
+			}
+		}
+		var input game.Input
+		if keyboardState[sdl.SCANCODE_UP] == 0 && prevKeyboardState[sdl.SCANCODE_UP] != 0{
+			input.Typ = game.Up
+		}
+		if keyboardState[sdl.SCANCODE_DOWN] == 0 && prevKeyboardState[sdl.SCANCODE_DOWN] != 0{
+			input.Typ = game.Down
+		}
+		if keyboardState[sdl.SCANCODE_LEFT] == 0 && prevKeyboardState[sdl.SCANCODE_LEFT] != 0{
+			input.Typ = game.Left
+		}
+		if keyboardState[sdl.SCANCODE_RIGHT] == 0 && prevKeyboardState[sdl.SCANCODE_RIGHT] != 0{
+			input.Typ = game.Right
+		}
+		for i,v := range keyboardState {
+			prevKeyboardState[i] = v
+		}
+		if input.Typ != game.None {
+			return &input
 		}
 	}
-	return nil
 }
