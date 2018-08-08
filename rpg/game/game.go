@@ -1,12 +1,12 @@
 package game
 
 import (
-	"sort"
-	"fmt"
 	"bufio"
-	"os"
-	"time"
+	"fmt"
 	"math"
+	"os"
+	"sort"
+	"time"
 )
 
 type GameUI interface {
@@ -15,9 +15,10 @@ type GameUI interface {
 }
 
 type InputType int
+
 const (
 	None InputType = iota
-	Up 
+	Up
 	Down
 	Left
 	Right
@@ -30,13 +31,14 @@ type Input struct {
 }
 
 type Tile rune
+
 const (
-	StoneWall 	Tile = '#'
-	DirtFloor 	Tile = '.'
-	ClosedDoor	Tile = '|'
-	OpenDoor	Tile = '/'
-	Blank 		Tile = 0
-	Pending		Tile = -1
+	StoneWall  Tile = '#'
+	DirtFloor  Tile = '.'
+	ClosedDoor Tile = '|'
+	OpenDoor   Tile = '/'
+	Blank      Tile = 0
+	Pending    Tile = -1
 )
 
 type Pos struct {
@@ -52,18 +54,10 @@ type Player struct {
 }
 
 type Level struct {
-	Map		[][]Tile
-	Player 	Player
-	Debug	map[Pos]bool
+	Map    [][]Tile
+	Player Player
+	Debug  map[Pos]bool
 }
-
-
-type priorityPos struct {
-	Pos
-	priority int
-}
-
-type priorityArray []priorityPos
 
 func (p priorityArray) Len() int           { return len(p) }
 func (p priorityArray) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
@@ -71,7 +65,7 @@ func (p priorityArray) Less(i, j int) bool { return p[i].priority < p[j].priorit
 
 func loadLevelFromFile(filename string) *Level {
 	file, err := os.Open(filename)
-	if err != nil{
+	if err != nil {
 		panic(err)
 	}
 	defer file.Close()
@@ -88,14 +82,14 @@ func loadLevelFromFile(filename string) *Level {
 		index++
 	}
 	level := &Level{}
-	level.Map = make([][]Tile,len(levelLines))
+	level.Map = make([][]Tile, len(levelLines))
 	for i := range level.Map {
 		level.Map[i] = make([]Tile, longestRow)
 
 	}
 	for y := 0; y < len(level.Map); y++ {
 		line := levelLines[y]
-		for x,c := range line {
+		for x, c := range line {
 			var t Tile
 			switch c {
 			case ' ', '\n', '\t', '\r':
@@ -115,15 +109,15 @@ func loadLevelFromFile(filename string) *Level {
 			default:
 				panic("invalid charater in map")
 
-			} 
+			}
 			level.Map[y][x] = t
-		}		
+		}
 	}
 
 	for y, row := range level.Map {
 		for x, tile := range row {
 			if tile == Pending {
-				SearchLoop:
+			SearchLoop:
 				for searchX := x - 1; searchX <= x+1; searchX++ {
 					for searchY := y - 1; searchY <= y+1; searchY++ {
 						searchTile := level.Map[searchY][searchY]
@@ -134,7 +128,7 @@ func loadLevelFromFile(filename string) *Level {
 						}
 					}
 				}
-			} 
+			}
 		}
 	}
 	return level
@@ -188,7 +182,7 @@ func HandleInput(ui GameUI, level *Level, input *Input) {
 		//bfs(ui, level, level.Player.Pos)
 		astar(ui, level, level.Player.Pos, Pos{3, 2})
 	}
-} 
+}
 
 func getNeighbors(level *Level, pos Pos) []Pos {
 	neighbors := make([]Pos, 0, 4)
@@ -213,7 +207,7 @@ func getNeighbors(level *Level, pos Pos) []Pos {
 	return neighbors
 }
 
-func bfs (ui GameUI, level *Level, start Pos) {
+func bfs(ui GameUI, level *Level, start Pos) {
 	frontier := make([]Pos, 0, 8)
 	frontier = append(frontier, start)
 	visited := make(map[Pos]bool)
@@ -223,7 +217,7 @@ func bfs (ui GameUI, level *Level, start Pos) {
 	for len(frontier) > 0 {
 		current := frontier[0]
 		frontier = frontier[1:]
-		for _,next := range getNeighbors(level,current){
+		for _, next := range getNeighbors(level, current) {
 			if !visited[next] {
 				frontier = append(frontier, next)
 				visited[next] = true
@@ -234,7 +228,7 @@ func bfs (ui GameUI, level *Level, start Pos) {
 	}
 }
 
-func astar(ui GameUI, level *Level, start, goal Pos)[]Pos{
+func astar(ui GameUI, level *Level, start, goal Pos) []Pos {
 	frontier := make(priorityArray, 0, 8)
 	frontier = append(frontier, priorityPos{start, 1})
 	cameFrom := make(map[Pos]Pos)
@@ -243,8 +237,8 @@ func astar(ui GameUI, level *Level, start, goal Pos)[]Pos{
 	costSoFar[start] = 0
 	level.Debug = make(map[Pos]bool)
 
-	for len(frontier) > 0{
-		sort.Stable(frontier)  // Slow priority queue, make a real one! 
+	for len(frontier) > 0 {
+		sort.Stable(frontier) // Slow priority queue, make a real one!
 		current := frontier[0]
 		if current.Pos == goal {
 			path := make([]Pos, 0)
@@ -268,13 +262,13 @@ func astar(ui GameUI, level *Level, start, goal Pos)[]Pos{
 			return path
 		}
 		frontier = frontier[1:]
-		for _,next := range getNeighbors(level, current.Pos){
+		for _, next := range getNeighbors(level, current.Pos) {
 			newCost := costSoFar[current.Pos] + 1 //always one for now
 			_, exists := costSoFar[next]
 			if !exists || newCost < costSoFar[next] {
 				costSoFar[next] = newCost
-				xDist := int(math.Abs(float64(goal.X-next.X)))
-				yDist := int(math.Abs(float64(goal.Y-next.Y)))
+				xDist := int(math.Abs(float64(goal.X - next.X)))
+				yDist := int(math.Abs(float64(goal.Y - next.Y)))
 				priority := newCost + xDist + yDist
 				frontier = append(frontier, priorityPos{next, priority})
 				cameFrom[next] = current.Pos
