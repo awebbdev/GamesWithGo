@@ -8,9 +8,9 @@ import (
 	"time"
 )
 type Game struct {
-	LevelChans []chan *Level
-	InputChan  chan *Input
-	Level      *Level
+	LevelChans 	[]chan *Level
+	InputChan  	chan *Input
+	Level   	*Level
 }
 
 func NewGame(numWindows int, levelPath string) *Game {
@@ -67,6 +67,7 @@ type Level struct {
 	Map    [][]Tile
 	Player Player
 	Debug  map[Pos]bool
+	Monsters	map[Pos]*Monster
 }
 
 func loadLevelFromFile(filename string) *Level {
@@ -89,9 +90,9 @@ func loadLevelFromFile(filename string) *Level {
 	}
 	level := &Level{}
 	level.Map = make([][]Tile, len(levelLines))
+	level.Monsters = make(map[Pos]*Monster)
 	for i := range level.Map {
-		level.Map[i] = make([]Tile, longestRow)
-
+		level.Map[i] = make([]Tile, longestRow)		
 	}
 	for y := 0; y < len(level.Map); y++ {
 		line := levelLines[y]
@@ -108,9 +109,15 @@ func loadLevelFromFile(filename string) *Level {
 				t = OpenDoor
 			case '.':
 				t = DirtFloor
-			case 'P':
+			case '@':
 				level.Player.X = x
 				level.Player.Y = y
+				t = Pending
+			case 'R':
+				level.Monsters[Pos{x,y}] = NewRat()
+				t = Pending
+			case 'S':
+				level.Monsters[Pos{x,y}] = NewSpider()
 				t = Pending
 			default:
 				panic("Invalid character in map")
@@ -119,6 +126,7 @@ func loadLevelFromFile(filename string) *Level {
 		}
 	}
 
+	//TODO we should bfs to find the first floor tile
 	for y, row := range level.Map {
 		for x, tile := range row {
 			if tile == Pending {
@@ -271,7 +279,6 @@ func (game *Game) astar(start, goal Pos) []Pos {
 			level.Debug = make(map[Pos]bool)
 			for _, pos := range path {
 				level.Debug[pos] = true
-				time.Sleep(100 * time.Millisecond)
 			}
 
 			return path
@@ -286,7 +293,6 @@ func (game *Game) astar(start, goal Pos) []Pos {
 				priority := newCost + xDist + yDist
 				frontier = frontier.push(next, priority)
 				level.Debug[next] = true
-				time.Sleep(100 * time.Millisecond)
 				cameFrom[next] = current
 			}
 		}
