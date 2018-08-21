@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"time"
 )
 type Game struct {
 	LevelChans 	[]chan *Level
@@ -114,10 +113,10 @@ func loadLevelFromFile(filename string) *Level {
 				level.Player.Y = y
 				t = Pending
 			case 'R':
-				level.Monsters[Pos{x,y}] = NewRat()
+				level.Monsters[Pos{x,y}] = NewRat(Pos{x,y})
 				t = Pending
 			case 'S':
-				level.Monsters[Pos{x,y}] = NewSpider()
+				level.Monsters[Pos{x,y}] = NewSpider(Pos{x,y})
 				t = Pending
 			default:
 				panic("Invalid character in map")
@@ -130,31 +129,28 @@ func loadLevelFromFile(filename string) *Level {
 	for y, row := range level.Map {
 		for x, tile := range row {
 			if tile == Pending {
-			SearchLoop:
-				for searchX := x - 1; searchX <= x+1; searchX++ {
-					for searchY := y - 1; searchY <= y+1; searchY++ {
-						searchTile := level.Map[searchY][searchY]
-						switch searchTile {
-						case DirtFloor:
-							level.Map[y][x] = DirtFloor
-							break SearchLoop
-						}
-					}
-				}
+			level.Map[y][x] = level.bfsFloor(Pos{x,y})
 			}
 		}
 	}
 	return level
 }
 
+func inRange(level *Level, pos Pos) bool {
+	return pos.X < len(level.Map[0]) && pos.Y < len(level.Map) && pos.X >= 0 && pos.Y >= 0
+}
+
 func canWalk(level *Level, pos Pos) bool {
-	t := level.Map[pos.Y][pos.X]
-	switch t {
-	case StoneWall, ClosedDoor, Blank:
-		return false
-	default:
-		return true
+	if inRange(level, pos){
+		t := level.Map[pos.Y][pos.X]
+		switch t {
+		case StoneWall, ClosedDoor, Blank:
+			return false
+		default:
+			return true
+		}
 	}
+	return false
 }
 
 func checkDoor(level *Level, pos Pos) {
@@ -164,37 +160,48 @@ func checkDoor(level *Level, pos Pos) {
 	}
 }
 
+func (player *Player) Move(to Pos, level *Level) {
+	_, exists := level.Monsters[to]
+	//TODO: check if tile to move to is valid
+	if !exists{
+		player.Pos = to
+	}
+}
 func (game *Game) handleInput(input *Input) {
 	level := game.Level
 	p := level.Player
 	switch input.Typ {
 	case Up:
-		if canWalk(level, Pos{p.X, p.Y - 1}) {
-			level.Player.Y--
+		newPos := Pos{p.X, p.Y - 1}
+		if canWalk(level, newPos) {
+			level.Player.Move(newPos, level)
 		} else {
 			checkDoor(level, Pos{p.X, p.Y - 1})
 		}
 	case Down:
-		if canWalk(level, Pos{p.X, p.Y + 1}) {
-			level.Player.Y++
+		newPos := Pos{p.X, p.Y + 1}
+		if canWalk(level, newPos) {
+			level.Player.Move(newPos, level)
 		} else {
-			checkDoor(level, Pos{p.X, p.Y + 1})
+			checkDoor(level, newPos)
 		}
 	case Left:
-		if canWalk(level, Pos{p.X - 1, p.Y}) {
-			level.Player.X--
+		newPos := Pos{p.X - 1, p.Y}
+		if canWalk(level, newPos) {
+			level.Player.Move(newPos, level)
 		} else {
-			checkDoor(level, Pos{p.X - 1, p.Y})
+			checkDoor(level, newPos)
 		}
 	case Right:
-		if canWalk(level, Pos{p.X + 1, p.Y}) {
-			level.Player.X++
+		newPos := Pos{p.X + 1, p.Y}
+		if canWalk(level, newPos) {
+			level.Player.Move(newPos, level)
 		} else {
-			checkDoor(level, Pos{p.X + 1, p.Y})
+			checkDoor(level, newPos)
 		}
 	case Search:
 		//bfs(ui, level, level.Player.Pos)
-		game.astar(level.Player.Pos, Pos{3, 2})
+		level.astar(level.Player.Pos, Pos{3, 2})
 	case CloseWindow:
 		close(input.LevelChannel)
 		chanIndex := 0
@@ -231,8 +238,7 @@ func getNeighbors(level *Level, pos Pos) []Pos {
 	return neighbors
 }
 
-func (game *Game) bfs(start Pos) {
-	level := game.Level
+func (level *Level) bfsFloor(start Pos) Tile {
 	frontier := make([]Pos, 0, 8)
 	frontier = append(frontier, start)
 	visited := make(map[Pos]bool)
@@ -241,19 +247,24 @@ func (game *Game) bfs(start Pos) {
 
 	for len(frontier) > 0 {
 		current := frontier[0]
+		currentTile := level.Map[current.Y][current.X]
+		switch currentTile{
+		case DirtFloor:
+			return DirtFloor
+		default:
+		}
 		frontier = frontier[1:]
 		for _, next := range getNeighbors(level, current) {
 			if !visited[next] {
 				frontier = append(frontier, next)
 				visited[next] = true
-				time.Sleep(100 * time.Millisecond)
 			}
 		}
 	}
+	return DirtFloor
 }
 
-func (game *Game) astar(start, goal Pos) []Pos {
-	level := game.Level
+func (level *Level) astar(start, goal Pos) []Pos {
 	frontier := make(pqueue, 0, 8)
 	frontier = frontier.push(start, 1)
 	cameFrom := make(map[Pos]Pos)
@@ -310,6 +321,9 @@ func (game *Game) Run() {
 			return
 		}
 		game.handleInput(input)
+		for _,monster := range game.Level.Monsters {
+			monster.Update(game.Level)
+		}
 		if len(game.LevelChans) == 0 {
 			return
 		}
