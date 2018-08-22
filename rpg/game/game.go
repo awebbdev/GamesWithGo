@@ -56,10 +56,19 @@ type Pos struct {
 
 type Entity struct {
 	Pos
+	Name	string
+	Rune	rune
+}
+type Character struct{
+	Entity
+	Hitpoints	 	int
+	Strength		int
+	Speed			float64
+	ActionPoints	float64
 }
 
 type Player struct {
-	Entity
+	Character
 }
 
 type Level struct {
@@ -68,6 +77,36 @@ type Level struct {
 	Debug  map[Pos]bool
 	Monsters	map[Pos]*Monster
 }
+
+func PlayerAttackMonster(p *Player, m *Monster) {
+	p.ActionPoints--
+	m.Hitpoints -= p.Strength
+
+	if m.Hitpoints > 0 {
+		m.ActionPoints--
+		p.Hitpoints -= m.Strength
+	}
+}
+
+func MonsterAttackPlayer(p *Player, m *Monster) {
+	m.ActionPoints--
+	p.Hitpoints -= m.Strength
+
+	if p.Hitpoints > 0 {
+		p.ActionPoints--
+		m.Hitpoints -= p.Strength
+	}
+}
+func Attack(c1, c2 *Character){
+	c1.ActionPoints--
+	c2.Hitpoints -= c1.Strength
+
+	if c2.Hitpoints > 0 {
+		c2.ActionPoints--
+		c1.Hitpoints -= c2.Strength
+	}
+}
+
 
 func loadLevelFromFile(filename string) *Level {
 	file, err := os.Open(filename)
@@ -88,6 +127,15 @@ func loadLevelFromFile(filename string) *Level {
 		index++
 	}
 	level := &Level{}
+
+	// TODO where should we initialize the player\
+	level.Player.Strength = 20
+	level.Player.Hitpoints = 20
+	level.Player.Name = "GoMan"
+	level.Player.Rune = '@'
+	level.Player.Speed = 1.0
+	level.Player.ActionPoints = 0.0
+
 	level.Map = make([][]Tile, len(levelLines))
 	level.Monsters = make(map[Pos]*Monster)
 	for i := range level.Map {
@@ -125,7 +173,6 @@ func loadLevelFromFile(filename string) *Level {
 		}
 	}
 
-	//TODO we should bfs to find the first floor tile
 	for y, row := range level.Map {
 		for x, tile := range row {
 			if tile == Pending {
@@ -161,10 +208,18 @@ func checkDoor(level *Level, pos Pos) {
 }
 
 func (player *Player) Move(to Pos, level *Level) {
-	_, exists := level.Monsters[to]
-	//TODO: check if tile to move to is valid
+	monster, exists := level.Monsters[to]
 	if !exists{
 		player.Pos = to
+	}else{
+		PlayerAttackMonster(&level.Player, monster)
+		fmt.Println("Player Attack Monster")
+		fmt.Println(level.Player.Hitpoints, monster.Hitpoints)
+		if level.Player.Hitpoints <= 0{
+			fmt.Println("YOU DIED")
+			panic("YOU DIED")
+		}
+
 	}
 }
 func (game *Game) handleInput(input *Input) {
